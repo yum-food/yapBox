@@ -1,0 +1,6 @@
+ctranslate2
+numpy
+pyaudio
+pydub
+onnxruntime
+
