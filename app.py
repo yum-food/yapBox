@@ -1,6 +1,7 @@
 from datetime import datetime
 from pydub import AudioSegment
 
+import gradio as gr
 import math
 import numpy as np
 import os
@@ -10,6 +11,22 @@ import time
 import typing
 import vad
 import wave
+
+class Logger:
+    def __init__(self, filename):
+        self.terminal = sys.stdout
+        self.log = open(filename, "w")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        self.terminal.flush()
+        self.log.flush()
+
+    def isatty(self):
+        return False    
 
 class AudioStream():
     FORMAT = pyaudio.paInt16
@@ -101,6 +118,18 @@ class MicStream(AudioStream):
             if (self.p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
                 device_name = self.p.get_device_info_by_host_api_device_index(0, i).get('name')
                 print("Input Device id ", i, " - ", device_name)
+
+    def getMicDevices() -> str:
+        p = pyaudio.PyAudio()
+        info = p.get_host_api_info_by_index(0)
+        numdevices = info.get('deviceCount')
+
+        result = []
+        for i in range(0, numdevices):
+            if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
+                device_name = p.get_device_info_by_host_api_device_index(0, i).get('name')
+                result.append(f"Input Device id {i} - {device_name}")
+        return '\n'.join(result)
 
     def onAudioFramesAvailable(self,
             frames,
@@ -320,7 +349,7 @@ def saveAudio(audio: bytes, path: str, stream: AudioStream):
         wf.setframerate(stream.fps)
         wf.writeframes(audio)
 
-def concatenate_wav_files(output_path):
+def concatenateWavFiles(output_path):
     # List all .wav files in the CWD
     wav_files = [f for f in os.listdir('.') if f.endswith('.wav')]
 
@@ -330,6 +359,9 @@ def concatenate_wav_files(output_path):
     # Open the output file
     with wave.open(output_path, 'wb') as output_wav:
         for wav_file in wav_files:
+            if os.path.abspath(wav_file) == os.path.abspath(output_path):
+                print(f"Skip adding output file ({wav_file}) to itself")
+                continue
             print(f"Processing {wav_file}")
             with wave.open(wav_file, 'rb') as input_wav:
                 # Check if parameters are the same for each file
@@ -341,17 +373,19 @@ def concatenate_wav_files(output_path):
                 frames = input_wav.readframes(input_wav.getnframes())
                 output_wav.writeframes(frames)
 
-if __name__ == "__main__":
-    abspath = os.path.abspath(__file__)
-    dname = os.path.dirname(abspath)
-    os.chdir(dname)
-    print(f"Set cwd to {os.getcwd()}", file=sys.stderr)
+class AppControl:
+    run = True
+app_ctrl = AppControl()
 
-    concatenate_wav_files("concatenated.wav")
-    sys.exit(0)
+def recordMeDaddy(
+        mic_index: int,
+        min_volume: float = -1.3,
+        max_volume: float = -0.8
+        ):
+    app_ctrl.run = True
 
-    stream = MicStream("index")
-    stream_hd = MicStream("index", fps=44100)
+    stream = MicStream(str(mic_index))
+    stream_hd = MicStream(str(mic_index), fps=44100)
 
     collector = AudioCollector(stream)
     #collector = NormalizingAudioCollector(collector)
@@ -368,7 +402,7 @@ if __name__ == "__main__":
             max_speech_s=max_speech_s,
             stream=stream)
 
-    while True:
+    while app_ctrl.run:
         audio = collector.getAudio()
         collector_hd.getAudio()
         stable_cutoff, has_audio = segmenter.getStableCutoff(audio)
@@ -398,7 +432,7 @@ if __name__ == "__main__":
             print(f"volume: {audio_v}")
             # cutoff is a fine-tuned value based on volumes seen while in vr
             # (index mic)
-            if audio_v < -1.3 or audio_v > -0.8:
+            if audio_v < min_volume or audio_v > max_volume:
                 # Discard sample
                 print("Discarding too-quiet/too-loud segment")
                 collector.keepLast(1.0)
@@ -414,4 +448,52 @@ if __name__ == "__main__":
             #print("VAD detects no audio, skip transcription", file=sys.stderr)
             collector.keepLast(1.0)
             collector_hd.keepLast(1.0)
+    print("Stopped recording")
+
+def getOutput() -> str:
+    sys.stdout.flush()
+    with open("output.log", "r") as f:
+        return f.read()
+
+def stopApp():
+    print("Requesting app stop")
+    app_ctrl.run = False
+
+if __name__ == "__main__":
+    abspath = os.path.abspath(__file__)
+    dname = os.path.dirname(abspath)
+    os.chdir(dname)
+
+    sys.stdout = Logger("output.log")
+
+    print(f"Set cwd to {os.getcwd()}", file=sys.stderr)
+
+    with gr.Blocks() as demo:
+        dump_mics = gr.Button("Dump mics")
+        mics_output = gr.Text(label="Microphones")
+
+        mic_device = gr.Number(label="Mic device")
+        min_volume = gr.Number(label="Minimum volume", value=-1.3)
+        max_volume = gr.Number(label="Maximum volume", value=-0.8)
+        record_audio = gr.Button("Record audio")
+        stop_recording = gr.Button("Stop recording")
+        concatenated_path = gr.Text(label="Combined audio filename", value="combined.wav")
+        concatenate_audio = gr.Button("Combine audio files")
+
+        dbg_output = gr.Text(label="Output")
+
+        dump_mics.click(MicStream.getMicDevices, [], mics_output)
+
+        record_audio.click(recordMeDaddy, [mic_device, min_volume, max_volume],
+                dbg_output)
+        stop_recording.click(stopApp, [], dbg_output)
+        concatenate_audio.click(concatenateWavFiles, [concatenated_path],
+                dbg_output)
+
+        demo.load(getOutput, None, dbg_output, every=0.5)
+    demo.launch()
+    sys.exit(0)
+
+    concatenateWavFiles("concatenated.wav")
+    sys.exit(0)
 

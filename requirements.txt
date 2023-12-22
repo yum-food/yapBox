@@ -1,6 +1,7 @@
 ctranslate2
+gradio
 numpy
+onnxruntime
 pyaudio
 pydub
-onnxruntime
 

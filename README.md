@@ -3,8 +3,7 @@
 A black box for your yapping.
 
 This app records your mic. It uses silero-vad to split audio into contiguous
-segments of speech, and saves them to disk as .wav files. Metadata is
-saved to a corresponding .yaml file.
+segments of speech, and saves them to disk as .wav files.
 
 What's a black box? Wikipedia says this:
 ```
@@ -15,10 +14,6 @@ an outdated name which has become a misnomer—they are now required to be
 painted bright orange, to aid in their recovery after accidents.
 ```
 
-This is a CLI app. It is not polished and requires a little elbow grease to
-use properly. The intent is to assist people who want to gather high-quality
-training data of human voices. Use responsibly.
-
 ## Compatibility
 
 This application is designed for Windows 10. Functionality on any other
@@ -26,10 +21,10 @@ platform is purely coincidental.
 
 ## Running
 
-Download the latest release and double click `app.bat` in File Explorer.
-
-Read the output and change the mic to whatever you're using. To change mics,
-edit app.py. Any text editor works, including Notepad.
+Download the latest release and double click `app.bat` in File Explorer. It
+should automatically open a tab in your browser showing you the UI. If it
+doesn't, type "localhost:7860" in your browser URL field (leave out the
+quotes).
 
 ## Building from source
 
