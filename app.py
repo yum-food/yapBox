@@ -26,7 +26,7 @@ class Logger:
         self.log.flush()
 
     def isatty(self):
-        return False    
+        return False
 
 class AudioStream():
     FORMAT = pyaudio.paInt16
@@ -62,24 +62,13 @@ class MicStream(AudioStream):
 
         got_match = False
         device_index = -1
-        focusrite_str = "Focusrite"
-        index_str = "Digital Audio Interface"
-        if which_mic == "index":
-            target_str = index_str
-        elif which_mic == "focusrite":
-            target_str = focusrite_str
-        else:
-            print(f"Mic {which_mic} requested, treating it as a numerical " +
-                    "device ID", file=sys.stderr)
-            device_index = int(which_mic)
-            got_match = True
         if not got_match:
             info = self.p.get_host_api_info_by_index(0)
             numdevices = info.get('deviceCount')
             for i in range(0, numdevices):
                 if (self.p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
                     device_name = self.p.get_device_info_by_host_api_device_index(0, i).get('name')
-                    if target_str in device_name:
+                    if which_mic in device_name:
                         print(f"Got matching mic: {device_name}",
                                 file=sys.stderr)
                         device_index = i
@@ -118,7 +107,7 @@ class MicStream(AudioStream):
                 device_name = self.p.get_device_info_by_host_api_device_index(0, i).get('name')
                 print("Input Device id ", i, " - ", device_name)
 
-    def getMicDevices() -> str:
+    def getMicDevices() -> typing.List[str]:
         p = pyaudio.PyAudio()
         info = p.get_host_api_info_by_index(0)
         numdevices = info.get('deviceCount')
@@ -127,8 +116,8 @@ class MicStream(AudioStream):
         for i in range(0, numdevices):
             if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
                 device_name = p.get_device_info_by_host_api_device_index(0, i).get('name')
-                result.append(f"Input Device id {i} - {device_name}")
-        return '\n'.join(result)
+                result.append(device_name)
+        return result
 
     def onAudioFramesAvailable(self,
             frames,
@@ -377,14 +366,14 @@ class AppControl:
 app_ctrl = AppControl()
 
 def recordMeDaddy(
-        mic_index: int,
+        mic_device: str,
         min_volume: float = -1.3,
         max_volume: float = -0.8
         ):
     app_ctrl.run = True
 
-    stream = MicStream(str(mic_index))
-    stream_hd = MicStream(str(mic_index), fps=44100)
+    stream = MicStream(mic_device)
+    stream_hd = MicStream(mic_device, fps=44100)
 
     collector = AudioCollector(stream)
     #collector = NormalizingAudioCollector(collector)
@@ -468,20 +457,17 @@ if __name__ == "__main__":
     print(f"Set cwd to {os.getcwd()}", file=sys.stderr)
 
     with gr.Blocks() as demo:
-        dump_mics = gr.Button("Dump mics")
-        mics_output = gr.Text(label="Microphones")
-
-        mic_device = gr.Number(label="Mic device")
+        mic_choices = MicStream.getMicDevices()
+        mic_device = gr.Dropdown(choices=mic_choices, label="Microphone")
         min_volume = gr.Number(label="Minimum volume", value=-1.3)
         max_volume = gr.Number(label="Maximum volume", value=-0.8)
         record_audio = gr.Button("Record audio")
         stop_recording = gr.Button("Stop recording")
         concatenated_path = gr.Text(label="Combined audio filename", value="combined.wav")
+        min_length = gr.Number(label="Minimum length (seconds)", value=3.0)
         concatenate_audio = gr.Button("Combine audio files")
 
         dbg_output = gr.Text(label="Output")
-
-        dump_mics.click(MicStream.getMicDevices, [], mics_output)
 
         record_audio.click(recordMeDaddy, [mic_device, min_volume, max_volume],
                 dbg_output)
