@@ -59,7 +59,6 @@ class MicStream(AudioStream):
         self.fps = fps
 
         print(f"Finding mic {which_mic}", file=sys.stderr)
-        self.dumpMicDevices()
 
         got_match = False
         device_index = -1

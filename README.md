@@ -26,6 +26,8 @@ should automatically open a tab in your browser showing you the UI. If it
 doesn't, type "localhost:7860" in your browser URL field (leave out the
 quotes).
 
+![UI example](yapbox_ui.PNG)
+
 ## Building from source
 
 First install python 3.10.9. Make sure that Powershell is using that version by
