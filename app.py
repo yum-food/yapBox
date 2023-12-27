@@ -578,18 +578,21 @@ def stopApp():
 
 def transcribeAudio(concatenated_path: str):
     # Step 1: Install Whisper requirements
+    print("Installing Whisper dependencies, this will take several minutes")
     with open("whisper_requirements.txt", "r") as file:
         requirements = file.read().splitlines()
     if not pipInstall(requirements):
         return
 
     # Step 2: Iterate over .wav files in the current working directory
+    print("Loading Whisper model, this will take several minutes")
     whisper = Whisper(None)
     for wav_file in os.listdir('.'):
         if wav_file.endswith('.wav'):
             if wav_file.endswith(os.path.basename(concatenated_path)):
                 print("Skipping concatenated file")
                 continue
+
             # Step 3: Transcription pipeline
             # TODO parameterize high fidelity framerate
             print(f"Transcribing {wav_file}")
@@ -597,11 +600,15 @@ def transcribeAudio(concatenated_path: str):
             collector = CompressingAudioCollector(AudioCollector(disk_stream))
             whisper.collector = collector
 
+            transcript_filename = wav_file.replace('.wav', '.txt')
+            if os.path.exists(transcript_filename):
+                print(f"Transcript already exists - skipping")
+                continue
+
             # Transcribe the audio
             segments = whisper.transcribe()
 
             # Step 4: Save transcriptions
-            transcript_filename = wav_file.replace('.wav', '.txt')
             with open(transcript_filename, 'w') as txt_file:
                 for segment in segments:
                     txt_file.write(segment.transcript + '\n')

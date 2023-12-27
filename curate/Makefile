@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-c -O2 -std=c++20
-LDFLAGS=-lcurses
+LDFLAGS=-lcurses -ltinfo -static
 
 EXE=ui
 SRCS=ui.cc

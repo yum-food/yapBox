@@ -70,11 +70,18 @@ if (-Not (Test-Path "silero-vad")) {
   git clone "https://github.com/snakers4/silero-vad"
 }
 
+if (-Not (Test-Path "../curate/ui")) {
+  pushd ../curate/ui >$null
+  make
+  popd >$null
+}
+
 mkdir $install_dir > $null
 mkdir $install_dir/Models
 cp ../*.py $install_dir/
 cp ../*.bat $install_dir/
 cp ../*.txt $install_dir/
+cp ../curate/ui $install_dir/curation_tui_wsl
 cp -Recurse Python $install_dir/Python
 cp "silero-vad/files/silero_vad.onnx" $install_dir/Models/
 cp "silero-vad/LICENSE" $install_dir/Models/silero_vad.onnx.LICENSE
